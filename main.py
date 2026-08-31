@@ -3,6 +3,14 @@ import time
 import os
 import random
 from dotenv import load_dotenv
+import threading
+from flask import Flask
+
+# Create a dummy web server to satisfy Render's HTTP health check
+
+
+
+
 
 load_dotenv()
 
@@ -369,6 +377,20 @@ def main():
         except Exception as e:
             print(f"Error: {e}")
             time.sleep(5)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running live 24/7!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
+    # Run Flask web server in a background thread
+    server_thread = threading.Thread(target=run_flask, daemon=True)
+    server_thread.start()
+    
+    # Run your original Telegram polling main function
     main()
