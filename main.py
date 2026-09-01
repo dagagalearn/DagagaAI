@@ -3,20 +3,12 @@ import time
 import os
 import random
 from dotenv import load_dotenv
-import threading
-from flask import Flask
-
-# Create a dummy web server to satisfy Render's HTTP health check
-
-
-
-
 
 load_dotenv()
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={GEMINI_API_KEY}"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 API_URL = f"https://api.telegram.org/bot{TOKEN}"
 
 BIO_DATA = """
@@ -295,6 +287,22 @@ COMPLETE ANSWER (finish all sentences):"""
     return None
 
 def main():
+    print("Bot starting...")
+    
+    # Verify connection
+    test = requests.get(f"{API_URL}/getMe")
+    if test.json().get("ok"):
+        print(f"Bot: @{test.json()['result']['username']}")
+    else:
+        print("Invalid token!")
+        return
+    
+    print("Ready! Send /start on Telegram")
+    
+    # Track API status
+    api_failed = False
+    last_api_attempt = 0
+    
     offset = None
     while True:
         try:
@@ -308,42 +316,59 @@ def main():
                         text = msg.get("text", "")
                         user = msg.get("from", {}).get("first_name", "User")
                         
-                        print(f"[RECEIVED] Message from {user} ({chat_id}): {text}", flush=True)
+                        print(f"Message from {user}: {text}")
                         
                         if text == "/start":
-                            reply = "Hi! I'm Dagaga's AI assistant.\nAsk me anything!"
+                            reply = (
+                                "Hi! I'm Dagaga's AI assistant.\n"
+                                "Ask me anything about Dagaga!\n\n"
+                                "Examples:\n"
+                                "- What's his email?\n"
+                                "- Where does he study?\n"
+                                "- Tech stack?\n"
+                                "- Grade level?\n"
+                                "- Favorite movies?\n"
+                                "- Languages he speaks?\n"
+                                "- Family?\n"
+                                "- Blood type?\n"
+                                "- What blood can he donate/receive?\n"
+                                "- Tell me about his hobbies"
+                            )
                             send_message(chat_id, reply)
-                            print("[SENT] Welcome response", flush=True)
+                            print("Sent welcome message")
                             continue
                         
-                        # Process AI or Fallback response
-                        api_response = ask_rag(text)
-                        if api_response:
-                            send_message(chat_id, api_response)
-                            print("[SENT] Gemini API response", flush=True)
+                        # Try API first
+                        current_time = time.time()
+                        if api_failed and current_time - last_api_attempt < 60:
+                            # API recently failed, use offline mode with notification
+                            reply = "Note: I'm currently in offline mode as the AI service is temporarily unavailable. Responses will come from my local database.\n\n"
+                            reply += get_fallback_response(text)
+                            send_message(chat_id, reply)
+                            print("Sent offline response")
                         else:
-                            fallback = get_fallback_response(text)
-                            send_message(chat_id, fallback)
-                            print("[SENT] Fallback response", flush=True)
+                            # Try API
+                            api_response = ask_rag(text)
+                            
+                            if api_response:
+                                # API worked
+                                api_failed = False
+                                send_message(chat_id, api_response)
+                                print("Sent API response")
+                            else:
+                                # API failed
+                                api_failed = True
+                                last_api_attempt = current_time
+                                reply = "The AI service is temporarily unavailable due to high demand or connectivity issues. I'm switching to offline mode. You'll still get accurate answers from my database.\n\n"
+                                reply += get_fallback_response(text)
+                                reply += "\n\nNote: These responses are from pre-loaded information and may be more limited. You can try again later for AI-powered responses."
+                                send_message(chat_id, reply)
+                                print("Sent offline fallback response")
             
             time.sleep(1)
         except Exception as e:
-            print(f"[ERROR] Exception in main loop: {e}", flush=True)
+            print(f"Error: {e}")
             time.sleep(5)
 
-
 if __name__ == "__main__":
-    import threading
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
-if __name__ == "__main__":
-    import threading
-    # 1. Start Flask in a background thread so Render health checks pass
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-
-    # 2. Run Telegram polling loop on the main thread
     main()
