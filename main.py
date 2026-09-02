@@ -22,7 +22,7 @@ load_dotenv()
 class Config:
     TELEGRAM_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     GEMINI_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    GEMINI_MODEL: str = "gemini-2.5-flash"  # Updated model name
+    GEMINI_MODEL: str = "gemini-3.6-flash"  # Updated model name
     API_BASE_URL: str = "https://api.telegram.org/bot"
     GEMINI_URL: str = "https://generativelanguage.googleapis.com/v1beta/models"
     MAX_RETRIES: int = 3
