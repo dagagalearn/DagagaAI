@@ -2,6 +2,7 @@ import requests
 import time
 import os
 import random
+import re
 import logging
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
@@ -33,30 +34,80 @@ API_URL = f"{config.API_BASE_URL}{config.TELEGRAM_TOKEN}"
 GEMINI_URL = f"{config.GEMINI_URL}/{config.GEMINI_MODEL}:generateContent?key={config.GEMINI_API_KEY}"
 
 BIO_DATA = """
-FULL NAME: Dagaga Addisu
-NICKNAME NAME: Tesla
-AGE: 18 (born Feb 29, 2008)
-LOCATION: Ethiopia
-OCCUPATION: Student
-SCHOOL/UNIVERSITY: Wollega University Special Boarding Secondary School (a.k.a WUSBSS)
-INTERESTS: Coding, Learning Science, Solving Problems, Watching Movies
-TECH STACK: HTML/CSS/JS, Python, TensorFlow, Basic ML tools
-PERSONALITY: Protean and curious, witty, loves science and technology references
-GOALS: No need to share here
-FUN FACTS: Born on Leap day, uses Ethiopian Calendar to celebrate most birthdays
-CONTACT: dagagaaddisulearn@gmail.com | dagagathecoder@gmail.com | @et_tesla (telegram)
-FAVORITES: IRON MAN, INTERSTELLAR, OPPENHEIMER
-DAILY ROUTINE: Variable depending on day and tasks
-WHAT YOU'RE LEARNING NOW: Currently taking AI and Calculus courses
-GIRLFRIEND/MARRIAGE/RELATIONSHIP: When asked about girlfriend/dating/relationships, respond with witty, science/tech/movie-themed deflections
-EDUCATION LEVEL: High school, Grade 12
-HOBBIES: Coding, learning new things, problem solving
-PARENTS/FAMILY: 1 brother, 1 sister, father and mother (both teachers)
-BLOOD TYPE: O-
-BLOOD DONATION INFO: Universal donor (O-). Can donate to all blood types. Can only receive O- blood.
-RELIGION: Protestant
-LANGUAGES: Afan Oromo, Amharic, English
-FAVORITE SUBJECT: Physics, Math, Informatics
+IDENTITY:
+- Full name: Dagaga Addisu
+- Nickname: Tesla
+- Age: 18
+- Country: Ethiopia
+- Occupation: Student
+- Education level: Grade 12 / high school
+- Languages: Afan Oromo, Amharic, English
+
+EDUCATION & LEARNING:
+- Studies mathematics, physics, informatics, AI, machine learning, programming, and calculus.
+- Favorite academic areas: physics, mathematics, and informatics.
+- Current learning focus: AI/ML engineering, calculus, linear algebra, NumPy, Python, and machine learning.
+- Learning style: prefers understanding concepts, mathematics, intuition, derivations, and practical implementation rather than memorization alone.
+
+TECHNICAL SKILLS:
+- Python
+- HTML/CSS/JavaScript
+- TensorFlow
+- NumPy
+- Pandas
+- Matplotlib
+- Basic machine-learning tools
+- Experience with command-line Python projects and Telegram bot development
+- Familiar with machine-learning methods including decision trees, random forests, XGBoost, support vector machines, Naive Bayes, and neural networks.
+
+PROJECTS & TECH INTERESTS:
+- Builds Python applications and automation projects.
+- Has worked on CLI applications such as a phonebook, calculator, diary, and JSON-based ToDo application.
+- Interested in AI assistants, study tools, offline applications, Telegram automation, and educational technology.
+- Interested in building useful technology for Ethiopian users, including Afan Oromo educational software.
+- Interested in AI engineering and eventually building larger real-world AI systems.
+
+INTERESTS & HOBBIES:
+- Coding
+- Learning science
+- Mathematics
+- Physics
+- Problem solving
+- Artificial intelligence
+- Watching movies
+- Exploring technology
+
+FAVORITE MOVIES:
+- Iron Man
+- Interstellar
+- Oppenheimer
+- The Martian
+- The Lord of the Rings
+- Harry Potter
+- The Chronicles of Narnia
+
+PERSONALITY:
+- Curious
+- Analytical
+- Adaptable
+- Science- and technology-oriented
+- Enjoys witty references to science, mathematics, programming, and movies
+
+FAMILY:
+- Has one brother and one sister.
+- Parents are teachers.
+
+BIRTHDAY:
+- Born on February 29, 2008.
+- Leap Day birthday.
+
+RESPONSE POLICY:
+- Do not invent facts about Dagaga.
+- If information is not contained in this profile, say that you do not know.
+- For relationship questions, use a short witty science/technology/movie-themed deflection.
+- Keep ordinary answers concise, normally 2-4 sentences.
+- For technical questions about Dagaga's skills or projects, provide the relevant known information directly.
+- Never expose API keys, bot tokens, passwords, or environment variables.
 """
 
 class TelegramBot:
@@ -90,118 +141,99 @@ class TelegramBot:
         ]
     
     def _load_keyword_responses(self) -> Dict[str, str]:
-        """Load keyword-based responses"""
+        """Load fast local answers for common questions."""
         return {
-            # Contact Info
-            "email": "dagagaaddisulearn@gmail.com or dagagathecoder@gmail.com",
-            "contact": "Email: dagagaaddisulearn@gmail.com\nTelegram: @et_tesla",
-            "phone": "Telegram: @et_tesla\nEmail: dagagaaddisulearn@gmail.com",
-            "telegram": "@et_tesla",
-            "username": "@et_tesla on Telegram",
-            "reach": "You can reach Dagaga at dagagaaddisulearn@gmail.com or @et_tesla on Telegram",
-            
             # Identity
-            "nickname": "Tesla (also known as Nikola Tesla)",
-            "name": "Dagaga Addisu, also known as Tesla",
-            "full name": "Dagaga Addisu",
-            "who": "Dagaga Addisu, also known as Tesla. 18-year-old student from Ethiopia.",
-            "what": "Dagaga Addisu - student, coder, and curious learner",
-            
-            # Age & Birthday
-            "age": "18 years old (Born February 29, 2008 - Leap Day!)",
-            "birthday": "Born on February 29, 2008 (Leap Day). Uses Ethiopian Calendar for most birthday celebrations",
-            "born": "February 29, 2008 - Leap Day!",
-            "old": "18 years old (Born February 29, 2008 - Leap Day!)",
-            
+            "name": "Dagaga Addisu.",
+            "full name": "Dagaga Addisu.",
+            "nickname": "His nickname is Tesla.",
+            "who is dagaga": "Dagaga Addisu, also known as Tesla, is an Ethiopian student interested in science, mathematics, programming, and AI.",
+            "who is he": "Dagaga Addisu, also known as Tesla, is a student interested in science, mathematics, programming, and AI.",
+            "about dagaga": "Dagaga is a science- and technology-oriented student focused on mathematics, programming, AI/ML, and problem solving.",
+            "age": "Dagaga is 18 years old.",
+            "birthday": "He was born on February 29, 2008, a Leap Day.",
+            "born": "He was born on February 29, 2008, a Leap Day.",
+
             # Education
-            "school": "Wollega University Special Boarding Secondary School (WUSBSS)",
-            "university": "Wollega University Special Boarding Secondary School (WUSBSS)",
-            "study": "Wollega University Special Boarding Secondary School (WUSBSS)",
-            "grade": "Grade 12 (High school)",
-            "education": "High school, Grade 12 at Wollega University Special Boarding Secondary School",
-            "level": "Grade 12 (High school)",
-            "highschool": "Grade 12 at Wollega University Special Boarding Secondary School (WUSBSS)",
-            "student": "Yes, student at Wollega University Special Boarding Secondary School (Grade 12)",
-            "occupation": "Student at Wollega University Special Boarding Secondary School",
-            "job": "Student",
-            
-            # Interests & Hobbies
-            "movie": "Iron Man, Interstellar, Oppenheimer",
-            "favorites": "Iron Man, Interstellar, Oppenheimer",
-            "favorite": "Iron Man, Interstellar, Oppenheimer",
-            "interest": "Coding, Learning Science, Solving Problems, Watching Movies",
-            "hobby": "Coding, learning new things, problem solving",
-            "hobbies": "Coding, learning new things, problem solving",
-            
-            # Tech Stack
-            "tech": "HTML/CSS/JS, Python, TensorFlow, Basic ML tools",
-            "stack": "HTML/CSS/JS, Python, TensorFlow, Basic ML tools",
-            "technology": "HTML/CSS/JS, Python, TensorFlow, Basic ML tools",
-            "programming": "Python, HTML/CSS/JS, TensorFlow, Basic ML tools",
-            "code": "Python, HTML/CSS/JS, TensorFlow, Basic ML tools",
-            "coding": "Python, HTML/CSS/JS, TensorFlow, Basic ML tools",
-            
-            # Learning
-            "learn": "Currently studying AI and Calculus",
-            "learning": "Currently studying AI and Calculus",
-            "course": "Currently taking two courses: AI and Calculus",
-            "studying": "Currently taking two courses: AI and Calculus",
-            
-            # Subjects
-            "subject": "Physics, Math, and Informatics are favorite subjects",
-            "favorite subject": "Physics, Math, and Informatics",
-            "physics": "Physics is one of his favorite subjects",
-            "math": "Math is one of his favorite subjects",
-            "informatics": "Informatics is one of his favorite subjects",
-            
-            # Languages
-            "language": "Afan Oromo, Amharic, English",
-            "speak": "Afan Oromo, Amharic, English",
-            "oromo": "Yes, he speaks Afan Oromo",
-            "amharic": "Yes, he speaks Amharic",
-            "english": "Yes, he speaks English",
-            
-            # Location
-            "location": "Ethiopia",
-            "where": "Ethiopia",
-            "country": "Ethiopia",
-            "ethiopia": "Yes, Dagaga is from Ethiopia",
-            
+            "school": "Dagaga is a Grade 12 high-school student.",
+            "university": "He is currently a high-school student rather than a university student.",
+            "grade": "Grade 12.",
+            "education": "Grade 12 / high school.",
+            "student": "Yes. Dagaga is a student.",
+            "study": "He studies mathematics, physics, informatics, calculus, AI, machine learning, and programming.",
+            "studying": "His current learning focus includes AI/ML engineering, calculus, linear algebra, Python, NumPy, and machine learning.",
+            "learning": "He is currently focused on AI/ML engineering, calculus, linear algebra, Python, NumPy, and machine learning.",
+            "favorite subject": "Physics, mathematics, and informatics.",
+            "favorite subjects": "Physics, mathematics, and informatics.",
+
+            # Technical skills
+            "tech stack": "Python, HTML/CSS/JavaScript, TensorFlow, NumPy, Pandas, Matplotlib, and basic machine-learning tools.",
+            "tech": "Python, HTML/CSS/JavaScript, TensorFlow, NumPy, Pandas, Matplotlib, and basic machine-learning tools.",
+            "stack": "Python, HTML/CSS/JavaScript, TensorFlow, NumPy, Pandas, Matplotlib, and basic machine-learning tools.",
+            "programming": "Python is his main programming language. He also works with HTML/CSS/JavaScript and TensorFlow.",
+            "coding": "He mainly codes in Python and also works with HTML/CSS/JavaScript.",
+            "python": "Python is one of Dagaga's main programming languages.",
+            "tensorflow": "TensorFlow is part of Dagaga's technical stack.",
+            "numpy": "NumPy is part of his current Python/data-science toolkit.",
+            "pandas": "Pandas is part of his Python/data-analysis toolkit.",
+            "machine learning": "He is learning machine learning and has studied methods including SVMs, Naive Bayes, random forests, XGBoost, decision trees, and neural networks.",
+            "ai": "Dagaga is interested in AI engineering and machine learning.",
+            "artificial intelligence": "AI engineering is one of Dagaga's main technical interests.",
+            "ml": "Machine learning is one of his main areas of study.",
+
+            # Projects
+            "project": "He builds Python applications, automation tools, AI assistants, educational tools, and Telegram-based projects.",
+            "projects": "His projects include CLI applications, JSON-based applications, study tools, AI assistants, automation, and Telegram bots.",
+            "telegram bot": "He has worked on Telegram bot development and AI-powered Telegram automation.",
+            "telegram": "He works with Telegram automation and AI-powered Telegram bots.",
+            "ai assistant": "He is interested in building AI assistants that combine an LLM with structured personal knowledge and reliable fallback logic.",
+            "study app": "He is interested in educational and study-tracking applications, including offline tools.",
+            "afaan oromo": "He is interested in building useful educational technology for Afan Oromo users.",
+            "oromo": "He speaks Afan Oromo and is interested in Afan Oromo educational technology.",
+            "amharic": "He speaks Amharic.",
+            "english": "He speaks English.",
+
+            # Interests
+            "interest": "Coding, science, mathematics, physics, AI, problem solving, and technology.",
+            "interests": "Coding, science, mathematics, physics, AI, problem solving, and technology.",
+            "hobby": "Coding, learning, problem solving, science, and watching movies.",
+            "hobbies": "Coding, learning, problem solving, science, and watching movies.",
+            "movie": "His favorites include Iron Man, Interstellar, Oppenheimer, The Martian, The Lord of the Rings, Harry Potter, and The Chronicles of Narnia.",
+            "movies": "His favorites include Iron Man, Interstellar, Oppenheimer, The Martian, The Lord of the Rings, Harry Potter, and The Chronicles of Narnia.",
+            "favorite movie": "Iron Man, Interstellar, and Oppenheimer are among his favorites.",
+            "favorites": "Iron Man, Interstellar, Oppenheimer, The Martian, The Lord of the Rings, Harry Potter, and The Chronicles of Narnia.",
+
             # Family
-            "family": "1 brother, 1 sister, father and mother (both are teachers)",
-            "parent": "Both parents are teachers",
-            "father": "Father is a teacher",
-            "mother": "Mother is a teacher",
-            "sibling": "1 brother and 1 sister",
-            "brother": "Has 1 brother",
-            "sister": "Has 1 sister",
-            
-            # Blood
-            "blood": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "blood type": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "donation": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "donate": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "receive blood": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "transfusion": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            "universal donor": "Yes! Blood type O- makes Dagaga a universal donor. He can donate to anyone but can only receive O- blood.",
-            "o negative": "Blood type: O- (Universal donor). Can donate to all blood types but can only receive O- blood.",
-            
-            # Other
-            "religion": "Protestant",
-            "personality": "Protean and curious - adaptable and always learning",
-            "goal": "Information about Dagaga's goals is not available",
-            "fact": "Born on Leap Day (February 29, 2008)! Uses Ethiopian Calendar to celebrate most birthdays",
-            "fun fact": "Born on Leap Day (February 29, 2008)! Uses Ethiopian Calendar to celebrate most birthdays",
-            "routine": "Daily routine varies depending on the day and tasks that need to be completed",
-            "daily": "Daily routine varies depending on the day and tasks that need to be completed",
-            "schedule": "Daily routine varies depending on the day and tasks that need to be completed",
-            
+            "family": "He has one brother and one sister. His parents are teachers.",
+            "parents": "Both of his parents are teachers.",
+            "parent": "Both of his parents are teachers.",
+            "father": "His father is a teacher.",
+            "mother": "His mother is a teacher.",
+            "brother": "He has one brother.",
+            "sister": "He has one sister.",
+            "siblings": "He has one brother and one sister.",
+
+            # Languages
+            "language": "Afan Oromo, Amharic, and English.",
+            "languages": "Afan Oromo, Amharic, and English.",
+            "speak": "He speaks Afan Oromo, Amharic, and English.",
+
+            # Location
+            "location": "Ethiopia.",
+            "where": "Ethiopia.",
+            "country": "Ethiopia.",
+            "ethiopia": "Dagaga is from Ethiopia.",
+
+            # Personality
+            "personality": "Curious, analytical, adaptable, and strongly interested in science and technology.",
+            "personality type": "He describes himself as adaptable, curious, and science- and technology-oriented.",
+            "fun fact": "He was born on February 29, 2008, so his birthday falls on Leap Day.",
+
             # Help
-            "tell me": "I know about Dagaga Addisu (Tesla). Ask me something specific like email, school, age, tech stack, interests, blood type, etc.",
-            "help": "I can tell you about Dagaga's email, school, age, tech stack, interests, favorites, family, languages, blood type, and more. Just ask!",
-            "info": "I can tell you about Dagaga's email, school, age, tech stack, interests, favorites, family, languages, blood type, and more. Just ask!"
+            "help": "Ask about Dagaga's identity, education, skills, projects, interests, languages, family, or favorite movies.",
+            "info": "I can answer questions about Dagaga's education, skills, projects, interests, languages, family, and other information in his profile.",
         }
-    
+
     def send_message(self, chat_id: int, text: str) -> bool:
         """Send message to Telegram chat"""
         try:
@@ -248,9 +280,9 @@ class TelegramBot:
             return self.get_creative_girlfriend_response()
         
         # Direct keyword matches
-        for keyword, response in self.keyword_responses.items():
+        for keyword in sorted(self.keyword_responses, key=len, reverse=True):
             if keyword in question:
-                return response
+                return self.keyword_responses[keyword]
         
         # Context-based matching
         question_words = set(question.replace("?", "").replace("what", "").replace("is", "").split())
@@ -311,7 +343,7 @@ COMPLETE ANSWER (finish all sentences):"""
                         part.get("text", "") for part in parts if part.get("text")
                     ).strip()
                     if answer:
-                        return answer
+                        return self._clean_ai_response(answer)
                 
                 elif "error" in result:
                     error_msg = result["error"].get("message", "Unknown error")
@@ -340,23 +372,59 @@ COMPLETE ANSWER (finish all sentences):"""
         """Handle incoming message"""
         logger.info(f"Message from {user_name}: {text}")
         
-        if text == "/start":
+        command = text.split()[0].lower() if text.startswith("/") else ""
+
+        if command == "/start":
             welcome_msg = (
-                f"Hi {user_name}! I'm Dagaga's AI assistant.\n"
-                "Ask me anything about Dagaga!\n\n"
-                "Examples:\n"
-                "• What is his email?\n"
-                "• Where does he study?\n"
-                "• Tech stack?\n"
-                "• Grade level?\n"
-                "• Favorite movies?\n"
-                "• Languages he speaks?\n"
-                "• Family?\n"
-                "• Blood type?\n"
-                "• What blood can he donate/receive?\n"
-                "• Tell me about his hobbies"
+                f"Hi {user_name}! I'm Dagaga's AI assistant.\n\n"
+                "I can answer questions about Dagaga's education, programming skills, "
+                "AI/ML interests, projects, hobbies, languages, family, and favorite movies.\n\n"
+                "Useful commands:\n"
+                "/help - show examples\n"
+                "/about - short profile\n"
+                "/skills - technical skills\n"
+                "/projects - projects and interests"
             )
             self.send_message(chat_id, welcome_msg)
+            return
+
+        if command == "/help":
+            self.send_message(
+                chat_id,
+                "Try questions such as:\n"
+                "• Who is Dagaga?\n"
+                "• What does he study?\n"
+                "• What programming languages does he use?\n"
+                "• What AI/ML topics does he know?\n"
+                "• What projects has he built?\n"
+                "• What are his favorite movies?\n"
+                "• What languages does he speak?"
+            )
+            return
+
+        if command == "/about":
+            self.send_message(
+                chat_id,
+                "Dagaga Addisu, also known as Tesla, is an Ethiopian Grade 12 student "
+                "interested in mathematics, physics, programming, AI/ML, and problem solving."
+            )
+            return
+
+        if command == "/skills":
+            self.send_message(
+                chat_id,
+                "Technical skills: Python, HTML/CSS/JavaScript, TensorFlow, NumPy, "
+                "Pandas, Matplotlib, and machine-learning methods such as SVM, Naive Bayes, "
+                "random forests, XGBoost, decision trees, and neural networks."
+            )
+            return
+
+        if command == "/projects":
+            self.send_message(
+                chat_id,
+                "Project interests include Python applications, Telegram bots, AI assistants, "
+                "study/education tools, automation, and Afan Oromo educational technology."
+            )
             return
         
         api_response = self.ask_rag(text)
@@ -365,11 +433,11 @@ COMPLETE ANSWER (finish all sentences):"""
             self.send_message(chat_id, api_response)
         else:
             reply = (
-                "⚠️ AI service temporarily unavailable.\n"
-                "Using local database instead.\n\n"
+                "AI service temporarily unavailable.\n"
+                "Using the local knowledge base instead.\n\n"
             )
             reply += self.get_fallback_response(text)
-            reply += "\n\n💡 Tip: You can try again later for AI-powered responses."
+            reply += "\n\nTry again later for an AI-generated response."
             self.send_message(chat_id, reply)
     
     def run(self) -> None:
