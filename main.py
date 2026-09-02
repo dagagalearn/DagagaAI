@@ -27,7 +27,6 @@ class Config:
     GEMINI_URL: str = "https://generativelanguage.googleapis.com/v1beta/models"
     MAX_RETRIES: int = 3
     RETRY_DELAY: int = 3
-    OFFLINE_COOLDOWN: int = 60  # seconds
 
 config = Config()
 API_URL = f"{config.API_BASE_URL}{config.TELEGRAM_TOKEN}"
@@ -64,8 +63,6 @@ class TelegramBot:
     def __init__(self, config: Config):
         self.config = config
         self.session = requests.Session()
-        self.api_failed = False
-        self.last_api_attempt = 0
         self.relationship_responses = self._load_relationship_responses()
         self.keyword_responses = self._load_keyword_responses()
         
@@ -289,7 +286,7 @@ COMPLETE ANSWER (finish all sentences):"""
             "generationConfig": {
                 "topP": 0.95,
                 "topK": 40,
-                "maxOutputTokens": 150
+                "maxOutputTokens": 512
             }
         }
         
@@ -303,9 +300,18 @@ COMPLETE ANSWER (finish all sentences):"""
                 )
                 result = response.json()
                 
-                if "candidates" in result:
-                    answer = result["candidates"][0]["content"]["parts"][0]["text"]
-                    return answer.strip()
+                if "candidates" in result and result["candidates"]:
+                    candidate = result["candidates"][0]
+                    if candidate.get("finishReason") == "MAX_TOKENS":
+                        logger.warning("Gemini response reached the output token limit")
+                        continue
+
+                    parts = candidate.get("content", {}).get("parts", [])
+                    answer = "".join(
+                        part.get("text", "") for part in parts if part.get("text")
+                    ).strip()
+                    if answer:
+                        return answer
                 
                 elif "error" in result:
                     error_msg = result["error"].get("message", "Unknown error")
@@ -353,24 +359,11 @@ COMPLETE ANSWER (finish all sentences):"""
             self.send_message(chat_id, welcome_msg)
             return
         
-        current_time = time.time()
-        
-        # Check if we should use offline mode
-        if self.api_failed and current_time - self.last_api_attempt < self.config.OFFLINE_COOLDOWN:
-            reply = "🤖 Offline Mode\n\n"
-            reply += self.get_fallback_response(text)
-            self.send_message(chat_id, reply)
-            return
-        
-        # Try API
         api_response = self.ask_rag(text)
         
         if api_response:
-            self.api_failed = False
             self.send_message(chat_id, api_response)
         else:
-            self.api_failed = True
-            self.last_api_attempt = current_time
             reply = (
                 "⚠️ AI service temporarily unavailable.\n"
                 "Using local database instead.\n\n"
